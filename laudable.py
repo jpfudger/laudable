@@ -668,9 +668,7 @@ class LAUD_data():
         return matches
     def my_dates(self):
         dates = []
-        # It's horrible having this hard-coded.
-        # How else should be it supplied?
-        gd = gigproc.GIG_gigs('/home/jpf/Documents/gigproc/gigs')
+        gd = gigproc.GIG_gigs(self.opts.mygigs_path)
         for gig in gd.gigs:
             dates.append( { 'ordinal': gig.date.toordinal(), 'venue': gig.venue } )
         return dates
