@@ -41,7 +41,7 @@ class LAUD_song():
             print("Not found: " + self.path)
 
 class LAUD_album():
-    def __init__(self,artist,name,songs,path,bootleg,mydates):
+    def __init__(self,artist,name,songs,path,bootleg,mydates,opts):
         self.artist = artist
         self.name = name
         self.songs = songs
@@ -83,7 +83,8 @@ class LAUD_album():
         if images:
             self.image = images[0]
         else:
-            self.image = '/home/jpf/Music/Music/_Interface_/blank.jpg'
+            self.image = opts.root + '/_Interface_/blank.jpg'
+            #self.image = '/home/jpf/Music/Music/_Interface_/blank.jpg'
 
         if self.artist.info:
             try:
@@ -511,20 +512,20 @@ class LAUD_data():
     def process_album(self,path):
         if self.ignore_path(path):
             return
-        splits = path.split('/')
+        subpath = path[ (len(self.opts.root) + 1) : ]
+        splits = subpath.split('/')
+        artist_name = splits[1]
         album_name = splits[-1]
-        artist_name = splits[6]
         mp3s = self.myglob( path + '/*mp3' )
-        #bootleg = 'bootleg' in path.lower()
         bootleg = ( '/bootlegs/' in path.lower() ) or ( '/boots/' in path.lower() )
         if True: #len(mp3s) > 0:
             # Some albums have no mp3s because the playlist links elsewhere
             if self.sort:
                 mp3s.sort()
-            art_path = os.sep.join(splits[:7])
+            art_path = os.path.sep.join( [ self.opts.root, splits[0], splits[1] ] )
             a = self.get_artist(artist_name,art_path)
             mp3list = [ x.split('/')[-1] for x in mp3s ]
-            album = LAUD_album(a,album_name,mp3list,path,bootleg,self.mydates)
+            album = LAUD_album(a,album_name,mp3list,path,bootleg,self.mydates,self.opts)
             if album.playlist:
                 a.albums.append(album)
     def load_data(self):
@@ -645,7 +646,7 @@ class LAUD_data():
 
             
             if verbose:
-                print( "  %2d %-20s  %6d  %5d   %6d   %5d     %4d  %6d" % 
+                print( "  %3d %-20s  %6d  %5d   %6d   %5d     %4d  %6d" % 
                   ( i+1, a.alt_name,
                     off_albums,  off_songs, 
                     boot_albums, boot_songs,
@@ -668,7 +669,7 @@ class LAUD_data():
         return matches
     def my_dates(self):
         dates = []
-        gd = gigproc.GIG_gigs(self.opts.mygigs_path)
+        gd = gigproc.GIG_data(self.opts.mygigs_path)
         for gig in gd.gigs:
             dates.append( { 'ordinal': gig.date.toordinal(), 'venue': gig.venue } )
         return dates
