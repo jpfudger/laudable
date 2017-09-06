@@ -457,7 +457,7 @@ class LAUD_artist():
         return videos
 
 class LAUD_data():
-    def __init__(self,options=None):
+    def __init__(self,options={}):
         # we need an update phase, which copies the supplied options
         # into a dictionary, and uses sensible defaults. 
         self.artists = []
