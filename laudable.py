@@ -83,7 +83,7 @@ class LAUD_album():
         if images:
             self.image = images[0]
         else:
-            self.image = opts.root + '/_Interface_/blank.jpg'
+            self.image = opts["root"] + '/_Interface_/blank.jpg'
             #self.image = '/home/jpf/Music/Music/_Interface_/blank.jpg'
 
         if self.artist.info:
@@ -457,10 +457,12 @@ class LAUD_artist():
         return videos
 
 class LAUD_data():
-    def __init__(self,options):
+    def __init__(self,options=None):
+        # we need an update phase, which copies the supplied options
+        # into a dictionary, and uses sensible defaults. 
         self.artists = []
         self.sort = True    # whether to do sorted traverse
-        self.opts = options
+        self.opts = self.__update_options(options)
         self.time = time.clock()
         self.mydates = self.my_dates()
         self.load_data()
@@ -480,6 +482,25 @@ class LAUD_data():
                     counts[3] += 1
         return "%d artists, %d albums (%d gigproc) and %d songs in %.2f seconds." % \
                     ( counts[0], counts[1], counts[2], counts[3], self.time )
+    def __update_options(self,opts):
+        newopts = {}
+        newopts["boots"]       = opts.get("boots",       False)
+        #newopts["artist"]      = opts.get("artist",      None)
+        #newopts["album"]       = opts.get("album",       None)
+        #newopts["song"]        = opts.get("song",        None)
+        #newopts["date"]        = opts.get("date",        None)
+        #newopts["stats"]       = opts.get("stats",       False)
+        #newopts["play"]        = opts.get("play",        False)
+        #newopts["shuffle"]     = opts.get("shuffle",     False)
+        newopts["update"]      = opts.get("update",      False)
+        #newopts["html"]        = opts.get("html",        False)
+        #newopts["years"]       = opts.get("years",       False)
+        #newopts["gui"]         = opts.get("gui",         False)
+        newopts["html_root"]   = opts.get("html_root",   "")
+        newopts["root"]        = opts.get("root",        "/home/jpf/Music")
+        newopts["pickle_file"] = opts.get("pickle_file", "/home/jpf/bin/song_pickle")
+        newopts["mygigs_path"] = opts.get("mygigs_path", "/home/jpf/python/gigproc/gigs")
+        return newopts
     def ignore_path(self,path):
         if 'PENDING' in path:
             return True
@@ -512,7 +533,7 @@ class LAUD_data():
     def process_album(self,path):
         if self.ignore_path(path):
             return
-        subpath = path[ (len(self.opts.root) + 1) : ]
+        subpath = path[ (len(self.opts["root"]) + 1) : ]
         splits = subpath.split('/')
         artist_name = splits[1]
         album_name = splits[-1]
@@ -522,35 +543,35 @@ class LAUD_data():
             # Some albums have no mp3s because the playlist links elsewhere
             if self.sort:
                 mp3s.sort()
-            art_path = os.path.sep.join( [ self.opts.root, splits[0], splits[1] ] )
+            art_path = os.path.sep.join( [ self.opts["root"], splits[0], splits[1] ] )
             a = self.get_artist(artist_name,art_path)
             mp3list = [ x.split('/')[-1] for x in mp3s ]
             album = LAUD_album(a,album_name,mp3list,path,bootleg,self.mydates,self.opts)
             if album.playlist:
                 a.albums.append(album)
     def load_data(self):
-        if self.opts.update:
-            if os.path.exists(self.opts.pickle_file):
-                with open(self.opts.pickle_file,'rb') as f:
+        if self.opts["update"]:
+            if os.path.exists(self.opts["pickle_file"]):
+                with open(self.opts["pickle_file"],'rb') as f:
                     self.artists = pickle.load(f)
                 print( " Initial: %s" % self )
                 self.artists = [] # otherwise we append to the loaded list!
             self.build_song_data()
-            with open(self.opts.pickle_file,'wb') as f:
+            with open(self.opts["pickle_file"],'wb') as f:
                 pickle.dump(self.artists,f)
             print( "   Final: %s" % self )
             self.stats_table(True)
-        elif os.path.exists(self.opts.pickle_file):
-            with open(self.opts.pickle_file,'rb') as f:
+        elif os.path.exists(self.opts["pickle_file"]):
+            with open(self.opts["pickle_file"],'rb') as f:
                 self.artists = pickle.load(f)
             print( "    Read: %s" % self )
         else:
             print("Error: no stored data")
     def build_song_data(self):
-        letters = self.myglob( self.opts.root + '/*' )
-        #letters = [ self.opts.root + '/D' ] # testing: dylan only
-        #letters = [ self.opts.root + '/Y' ] # testing: young only
-        #letters = [ self.opts.root + '/H' ] # testing: hot tuna only
+        letters = self.myglob( self.opts["root"] + '/*' )
+        #letters = [ self.opts["root"] + '/D' ] # testing: dylan only
+        #letters = [ self.opts["root"] + '/Y' ] # testing: young only
+        #letters = [ self.opts["root"] + '/H' ] # testing: hot tuna only
         if self.sort:
             letters.sort()
         print("Updating: ", end='')
@@ -587,7 +608,7 @@ class LAUD_data():
         albums = []
         for x in self.artists:
             for y in x.albums:
-                if y.bootleg and not self.opts.boots:
+                if y.bootleg and not self.opts["boots"]:
                     continue
                 if pattern.lower() in y.name.lower():
                     albums.append(y)
@@ -660,7 +681,7 @@ class LAUD_data():
         for x in self.artists:
             if not query['artist'] or query['artist'].lower() in x.name.lower():
                 for y in x.albums:
-                    if y.bootleg and not self.opts.boots:
+                    if y.bootleg and not self.opts["boots"]:
                         continue
                     if not query['album'] or query['album'].lower() in x.name.lower():
                         for z in y.songs:
@@ -669,7 +690,7 @@ class LAUD_data():
         return matches
     def my_dates(self):
         dates = []
-        gd = gigproc.GIG_data(self.opts.mygigs_path)
+        gd = gigproc.GIG_data(self.opts["mygigs_path"])
         for gig in gd.gigs:
             dates.append( { 'ordinal': gig.date.toordinal(), 'venue': gig.venue } )
         return dates
@@ -780,7 +801,7 @@ class LAUD_data():
             lines += letter_div
             if lines:
                 lines += footer_lines[:]
-                with open(self.opts.html_root + fname, 'w') as f:
+                with open(self.opts["html_root"] + fname, 'w') as f:
                     for l in lines:
                         f.write('\n' + l)
 
@@ -792,7 +813,7 @@ class LAUD_data():
                     lines = header_lines[:] + alpha_div[:] + letter_div[:]
                     lines += div_albums
                     lines += footer_lines[:] 
-                    with open( self.opts.html_root + a.discog_fname(), 'w') as f:
+                    with open( self.opts["html_root"] + a.discog_fname(), 'w') as f:
                         for l in lines:
                             f.write('\n' + l)
 
@@ -800,20 +821,20 @@ class LAUD_data():
                     if div_boots:
                         lines = header_lines[:] + alpha_div[:] + letter_div[:]
                         lines += div_boots + footer_lines[:] 
-                        with open( self.opts.html_root + a.discog_fname_b(), 'w') as f:
+                        with open( self.opts["html_root"] + a.discog_fname_b(), 'w') as f:
                             for l in lines:
                                 f.write('\n' + l)
                         if decades:
                             for d in decades:
                                 dlines = header_lines[:] + alpha_div[:] + letter_div[:]
                                 dlines += d['lines'] + footer_lines[:]
-                                with open( self.opts.html_root + a.discog_fname_b(d['name']), 'w') as f:
+                                with open( self.opts["html_root"] + a.discog_fname_b(d['name']), 'w') as f:
                                     for l in dlines:
                                         f.write('\n' + l)
 
 
         lines = header_lines[:] + alpha_div[:] + footer_lines[:]
-        with open( self.opts.html_root + 'index.html', 'w') as f:
+        with open( self.opts["html_root"] + 'index.html', 'w') as f:
             for l in lines:
                 f.write('\n' + l)
 
@@ -842,14 +863,14 @@ class LAUD_data():
         years_div.append( '</div>' )
 
         # make empty years page:
-        self.plot_albums_by_year( self.opts.html_root + 'years_plot.png')
+        self.plot_albums_by_year( self.opts["html_root"] + 'years_plot.png')
         lines = header_lines[:] + alpha_div[:] + years_div[:]
         lines.append( '<div id=discography>' )
         lines.append( '<br>' )
         lines.append( '<img src="years_plot.png" width=750>' )
         lines.append( '</div>' )
         lines += footer_lines[:]
-        with open(self.opts.html_root + 'years.html', 'w') as f:
+        with open(self.opts["html_root"] + 'years.html', 'w') as f:
             for l in lines:
                 f.write('\n' + l)
 
@@ -874,7 +895,7 @@ class LAUD_data():
                 n_albums += 1
             lines.append( '</div>' )
             lines += footer_lines[:]
-            with open( self.opts.html_root + str(year) + '.html', 'w') as f:
+            with open( self.opts["html_root"] + str(year) + '.html', 'w') as f:
                 for l in lines:
                     f.write('\n' + l)
 
@@ -884,7 +905,7 @@ class LAUD_data():
         stats_lines += self.stats_table()
         stats_lines += [ '<br>', '</div>' ]
         stats_lines += footer_lines[:]
-        with open(self.opts.html_root + 'stats.html', 'w') as f:
+        with open(self.opts["html_root"] + 'stats.html', 'w') as f:
             for l in stats_lines:
                 f.write('\n' + l)
 
