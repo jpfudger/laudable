@@ -81,6 +81,7 @@ class LAUD_album():
 
         images = self.myglob(path + '/*.jpg')
         if images:
+            images.sort()
             self.image = images[0]
         else:
             self.image = opts["root"] + '/_Interface_/blank.jpg'
@@ -206,6 +207,14 @@ class LAUD_album():
                     link += 'class=boot '
                 link += 'href="' + self.playlist + '">' + name + '</a> ' + n_tracks
         return link
+    def findSong(self,sname):
+        songs = []
+
+        for song in self.psongs:
+            if sname.lower() in song.fname.lower():
+                songs.append(song)
+
+        return songs
 
 class LAUD_artist():
     def __init__(self,name,path):
@@ -455,6 +464,21 @@ class LAUD_artist():
         videos = [ a for a in self.albums if a.videos ]
         videos.sort(key = lambda x: x.name)
         return videos
+    def findSong(self,sname,include_boots=False):
+        songs = []
+
+        albums = []
+        if include_boots:
+            albums = self.albums[:]
+            # find non-bootleg matches first:
+            albums.sort( key = lambda x: x.bootleg )
+        else:
+            albums = self.getAlbums()
+
+        for alb in albums:
+            songs += alb.findSong(sname)
+
+        return songs
 
 class LAUD_data():
     def __init__(self,options={}):
@@ -915,6 +939,36 @@ class LAUD_data():
         my_years = [ x.date.year for x in self.get_my_gigs() ]
         my_years = list(set(my_years)) # unique
         my_years.sort()
+    def fuzzy_match(self,str1,str2):
+        str1 = str1.lower()
+        str2 = str2.lower()
+        exclude = [ ' ', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '!', ',', '.',
+                    '?', '\'', '-' ]
+        for e in exclude:
+            str1 = str1.replace(e,'')
+            str2 = str2.replace(e,'')
+        return str1 == str2
+    def find_artist(self,artist):
+        artist_obj = None
+        for ar in self.artists:
+            if ar.name == artist or ar.alt_name == artist:
+                #print("found artist match: " + ar.name)
+                artist_obj = ar
+                break
+        return artist_obj
+    def find_album(self,artist,album):
+        artist_obj = self.find_artist(artist)
+        album_obj = None
+            
+        if artist_obj:
+            for al in artist_obj.albums:
+                if self.fuzzy_match( al.name, album ):
+                    album_obj = al
+                    break
+
+        if not album_obj and album != "Misc":
+            print( "No album match for %s / %s" % ( artist, album ) )
+        return album_obj
 
 class LAUD_gui(QMainWindow, Ui_MainWindow):
     def __init__(self, data):
