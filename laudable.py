@@ -943,7 +943,7 @@ class LAUD_data():
         str1 = str1.lower()
         str2 = str2.lower()
         exclude = [ ' ', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '!', ',', '.',
-                    '?', '\'', '-' ]
+                    '?', '\'', '-', '[', ']', '(', ')' ]
         for e in exclude:
             str1 = str1.replace(e,'')
             str2 = str2.replace(e,'')
