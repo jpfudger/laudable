@@ -10,10 +10,10 @@ import subprocess
 import string
 import matplotlib.pyplot as plt
 from gigproc import gigproc
-from PyQt4.QtGui import *
-from PyQt4.QtCore import *
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
 from laudable.design import Ui_MainWindow
-from PyQt4.phonon import Phonon
 
 class LAUD_song():
     def __init__(self,fname,album,artist):
@@ -997,7 +997,7 @@ class LAUD_gui(QMainWindow, Ui_MainWindow):
         self.songList.setModel(self.songListModel)
 
         self.artistList.selectionModel().currentChanged.connect(self.onRowChanged)
-        QShortcut(QKeySequence("f"), self.videoPlayer, self.fFullscreen)
+        #QShortcut(QKeySequence("f"), self.videoPlayer, self.fFullscreen)
 
     def onRowChanged(self, current, previous):
         # this is for cursor up/down movements
@@ -1131,12 +1131,14 @@ class LAUD_gui(QMainWindow, Ui_MainWindow):
             self.phononPlay(song.path)
 
     def phononPlay(self,path):
-        self.is_fullscreen = False
-        vp = self.videoPlayer
-        vp.show()
-        media = Phonon.MediaSource(path)
-        vp.load(media)
-        vp.play()
+        pass
+        # from PyQt4.phonon import Phonon
+        # self.is_fullscreen = False
+        # vp = self.videoPlayer
+        # vp.show()
+        # media = Phonon.MediaSource(path)
+        # vp.load(media)
+        # vp.play()
 
     def onFullscreen(self,state):
         if state == Qt.Unchecked:
