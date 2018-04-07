@@ -9,6 +9,7 @@ import pickle
 import subprocess
 import string
 import matplotlib.pyplot as plt
+from mutagen.id3 import ID3, TIT2, TALB, TPE1, TRCK, APIC, TYER
 from gigproc import gigproc
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
@@ -16,17 +17,26 @@ from PyQt5.QtWidgets import *
 from laudable.design import Ui_MainWindow
 
 class LAUD_song():
-    def __init__(self,fname,album,artist):
+    def __init__(self,fname,album,artist,position=0,retag=False):
         self.fname  = fname
         self.album  = album
         self.artist = artist
-        self.title  = self.extract_title(fname)
-        self.searchtitle = self.extract_search_title(self.title)
         self.path   = album.path + os.sep + fname
-    def extract_title(self,path):
-        title = path.split('/')[-1]
+        self.title  = None
+        self.position = position
+        self.extract_title_and_position()
+        self.searchtitle = self.extract_search_title(self.title)
+        if retag:
+            self.set_id3_tag()
+    def extract_title_and_position(self):
+        title = self.fname.split('/')[-1]
         title = re.sub('\.\w+$','',title)
-        return title
+        tnum = re.match( '^(\d+)\s+(.*)$', title )
+        if tnum:
+            self.position = int(tnum.group(1))
+            self.title = tnum.group(2)
+        else:
+            self.title = title
     def extract_search_title(self,title):
         search_title = re.sub('\s+','',title)
         punctuation = [ '\.', ',', "'", '"', '-', '_' ]
@@ -39,6 +49,56 @@ class LAUD_song():
             os.system( 'mplayer "' + self.path + '"')
         else:
             print("Not found: " + self.path)
+    def set_id3_tag(self):
+        if not os.path.exists(self.path):
+            return
+
+        try:
+            tag = ID3(self.path)
+        except:
+            return
+
+        tag.delete()
+
+        art_name = self.artist.alt_name
+        if self.album.bootleg:
+            art_name += ' Bootlegs'
+
+        print( "artist: %s" % art_name)
+        print( "album: %s" % self.album.name)
+        if self.album.year:
+            print( "year: %d" % self.album.year )
+        print( "title: %s" % self.title)
+        print( "position: %d" % self.position)
+
+        tag.add(TIT2(text=self.title))
+        tag.add(TALB(text=self.album.name))
+        if self.album.year:
+            tag.add(TYER(text=str(self.album.year)))
+
+        tag.add(TPE1(text=art_name))
+        tag.add(TRCK(text=str(self.position)))
+
+        if self.album.image_data:
+            tag.add(APIC(type=3, mime='image/jpg', data=self.album.image_data))
+
+        # tag.save() parameters:	
+        #
+        #     filename (fspath) – Filename to save the tag to. If no filename
+        #     is given, the one most recently loaded is used.  
+        #
+        #     v1 (ID3v1SaveOptions) – if 0, ID3v1 tags will be removed.  if 1,
+        #     ID3v1 tags will be updated but not added. if 2, ID3v1 tags will
+        #     be created and/or updated 
+        #
+        #     v2_version (int) – version of ID3v2 tags (3 or 4).  
+        #
+        #     v23_sep (text) – the separator used to join multiple text values
+        #     if v2_version == 3.  Defaults to ‘/’ but if it’s None will be the
+        #     ID3v2v2.4 null separator.
+
+        #tag.save(v1=0, v2_version=4)
+        tag.save(filename=self.path, v1=0)
 
 class LAUD_album():
     def __init__(self,artist,name,songs,path,bootleg,mydates,opts):
@@ -47,10 +107,10 @@ class LAUD_album():
         self.songs = songs
         self.path = path
         self.playlist = self.find_playlist()
-        self.psongs = self.process_songs()
         self.bootleg = bootleg
         self.year = 0 # how?
         self.image = None
+        self.image_data = None
         self.date = None
         self.mine = False
         self.live = 'live' in name.lower() # path.lower()
@@ -58,6 +118,7 @@ class LAUD_album():
         self.order = 999
         self.last = False
         self.videos = self.find_videos()
+        self.retag = opts["retag"]
         
         if self.bootleg:
             keywords = [ 'studio', 'rehears', 'demo', 'outtake', 'session', 'acetate', 'radio', 'bbc' ]
@@ -69,6 +130,7 @@ class LAUD_album():
         m_date = re.match( '.*(\d\d\d\d\.\d\d\.\d\d).*', path )
         if m_date and '.00' not in path:
             self.date = datetime.datetime.strptime( m_date.group(1), '%Y.%m.%d')
+            self.year = self.date.year
             if self.date:
                 m_venue = re.match( '.*\[(.*)\].*', path )
                 if m_venue:
@@ -83,6 +145,9 @@ class LAUD_album():
         if images:
             images.sort()
             self.image = images[0]
+            if os.path.exists(self.image):
+                with open(self.image, "rb") as f:
+                    self.image_data = f.read()
         else:
             self.image = opts["root"] + '/_Interface_/blank.jpg'
             #self.image = '/home/jpf/Music/Music/_Interface_/blank.jpg'
@@ -94,6 +159,9 @@ class LAUD_album():
                 self.last  = self.order == len(self.artist.info[0]) or self.artist.info[0][self.order] == ''
             except:
                 pass
+
+        self.psongs = self.process_songs()
+        self.image_data = None
     def find_videos(self):
         matches = []
         video_exts = ('.mp4','.mpg','.flv','.avi','.wmv','.m4v','.mov','.webm')
@@ -123,6 +191,7 @@ class LAUD_album():
     def process_songs(self):
         songs = []
         psongs = []
+        position = 1
         if self.playlist and os.path.exists(self.playlist):
             with open(self.playlist) as f:
                 lines = f.readlines()
@@ -131,12 +200,14 @@ class LAUD_album():
                     if len(l) == 0 or l[0] == '#':
                         pass
                     else:
-                        psongs.append(LAUD_song(l,self,self.artist))
+                        psongs.append(LAUD_song(l,self,self.artist,position,self.retag))
+                        position += 1
                         songs.append(l)
             self.songs = songs
         else:
             for path in self.songs:
-                psongs.append(LAUD_song(path,self,self.artist))
+                psongs.append(LAUD_song(path,self,self.artist,position,self.retag))
+                position += 1
         return psongs
     def play(self):
         if self.playlist:
@@ -524,8 +595,10 @@ class LAUD_data():
         newopts["root"]        = opts.get("root",        "/home/jpf/Music")
         newopts["pickle_file"] = opts.get("pickle_file", "/home/jpf/bin/song_pickle")
         newopts["mygigs_path"] = opts.get("mygigs_path", "/home/jpf/python/gigproc/gigs")
+        newopts["retag"]       = opts.get("retag",       False)
         return newopts
     def ignore_path(self,path):
+        # read this from the top-level .plexignore file?
         if 'PENDING' in path:
             return True
         if '_Cl' in path:
@@ -534,11 +607,11 @@ class LAUD_data():
             return True
         if '_Misc' in path:
             return True
-        if 'Dylan/Interface' in path:
+        if 'Dylan, Bob/Interface' in path:
             return True
-        if 'Dylan/Stuff' in path:
+        if 'Dylan, Bob/Stuff' in path:
             return True
-        if 'Dylan/XM-Radio' in path:
+        if 'Dylan, Bob/XM-Radio' in path:
             return True
         return False
     def get_artist(self,name,path):
@@ -593,9 +666,10 @@ class LAUD_data():
             print("Error: no stored data")
     def build_song_data(self):
         letters = self.myglob( self.opts["root"] + '/*' )
-        #letters = [ self.opts["root"] + '/D' ] # testing: dylan only
-        #letters = [ self.opts["root"] + '/Y' ] # testing: young only
-        #letters = [ self.opts["root"] + '/H' ] # testing: hot tuna only
+        #letters = [ self.opts["root"] + '/A' ] # testing
+        #letters = [ self.opts["root"] + '/D' ] # testing
+        #letters = [ self.opts["root"] + '/Y' ] # testing
+        #letters = [ self.opts["root"] + '/H' ] # testing
         if self.sort:
             letters.sort()
         print("Updating: ", end='')
