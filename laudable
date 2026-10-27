@@ -1,0 +1,5 @@
+#!/usr/bin/bash
+
+#echo "laudable ${@}"
+
+python3 main.py "${@}"
