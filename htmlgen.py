@@ -12,6 +12,7 @@ class LAUD_html():
         self.queries = LAUD_queries()
 
         self.alphabet_lines = []
+        self._favourite_artists = []
 
         self.make_css()
         self.make_javascript()
@@ -21,35 +22,10 @@ class LAUD_html():
         if self.verbose:
             print(msg)
 
-    def _favourites(self):
-        favs = []
-        favs.append("Adams, Ryan")        # A
-        favs.append("Beach Boys")         # B
-        favs.append("Cohen, Leonard")     # C
-        favs.append("Dylan, Bob")         # D
-        favs.append("Earle, Steve")       # E
-        favs.append("Felice Brothers")    # F
-        favs.append("Grateful Dead")      # G
-        favs.append("Hitchcock, Robyn")   # H
-        favs.append("Isbell, Jason")      # I
-        favs.append("Jansch, Bert")       # J
-        favs.append("Kinks")              # K
-        favs.append("Led Zeppelin")       # L
-        favs.append("Marling, Laura")     # M
-        favs.append("Newman, Randy")      # N
-        favs.append("Oasis")              # O
-        favs.append("Petty, Tom")         # P
-        favs.append("Queen")              # Q
-        favs.append("Rolling Stones")     # R
-        favs.append("Springsteen, Bruce") # S
-        favs.append("Thompson, Richard")  # T
-        favs.append("U2")                 # U
-        favs.append("Velvet Underground") # V
-        favs.append("Waits, Tom")         # W
-        favs.append("XTC")                # X
-        favs.append("Young, Neil")        # Y
-        favs.append("Zevon, Warren")      # Z
-        return favs
+    def get_favourite_artists(self):
+        if not self._favourite_artists:
+            self._favourite_artists = self.queries.get_favourite_artists()
+        return self._favourite_artists
 
     def make_css(self):
         path = LAUD_html_root / "style.css"
@@ -381,7 +357,7 @@ class LAUD_html():
         path = LAUD_html_root / (fname + ".html")
         self.write_html(letter_artist_lines, lines, path)
         
-        if artist in self._favourites():
+        if artist in self.get_favourite_artists():
             # favourite: duplicate artist page as letter page
             letter_path = LAUD_html_root / f"{artist[0].lower()}.html"
             self.write_html(letter_artist_lines, lines, letter_path)

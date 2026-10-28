@@ -7,6 +7,7 @@ VIDEO_EXTENSIONS = ('.mp4','.mpg','.flv','.avi','.wmv','.m4v','.mov','.webm')
 
 class AlbumInfo:
     artist_name = None
+    artist_path = False
     songs = []
     album_name = None
     playlist_path = None
@@ -210,6 +211,7 @@ def get_album_info(root, files, my_gig_artists=None):
         
         info = AlbumInfo()
         info.artist_name = artist_name
+        info.artist_path = artist_path
         info.songs = songs
         info.album_name = album_name
         info.playlist_path = playlist_path
@@ -238,9 +240,10 @@ def LAUD_update_database():
 
     if create_tables:
         c.execute("""CREATE TABLE ARTISTS(
-            id      integer primary key,
-            name    text unique,
-            path    text
+            id          integer primary key,
+            name        text unique,
+            path        text,
+            favourite   integer
             )""")
 
         c.execute("""CREATE TABLE ALBUMS(
@@ -306,8 +309,15 @@ def LAUD_update_database():
             if album_info.artist_name in ARTIST_IDS:
                 artist_id = ARTIST_IDS[album_info.artist_name]
             else:
-                c.execute(f"""INSERT OR IGNORE INTO ARTISTS(name, path)
-                              VALUES (\"{album_info.artist_name}\", \"{root}\")
+                fav = False
+                if album_info.artist_path:
+                    fav_path = os.path.join(album_info.artist_path, "fav")
+                    fav = os.path.isfile(fav_path)
+                c.execute(f"""INSERT OR IGNORE INTO ARTISTS(name, path, favourite)
+                              VALUES ( \"{album_info.artist_name}\", 
+                                       \"{root}\",
+                                       {fav}
+                                     )
                               RETURNING id""")
                 artist_id = c.fetchone()[0]
                 #print(f"artist_id: {artist_id}")

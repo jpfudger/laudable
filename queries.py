@@ -398,3 +398,13 @@ class LAUD_queries:
 
         return stats
 
+    def get_favourite_artists(self):
+        q = """SELECT A.name FROM ARTISTS A
+               WHERE A.favourite = 1 
+               ORDER BY A.name ASC"""
+        favourites = [ x[0] for x in self.query(q) ]
+        if len(favourites) != 26:
+            print(f"Warning: {len(favourites)} favourite artists")
+        #print(f"{len(favourites)} favourites: {favourites}")
+        return favourites
+
